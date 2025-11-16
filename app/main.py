@@ -12,6 +12,8 @@ from app.core.exceptions import setup_exception_handlers
 from app.core.health import router as health_router
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import setup_middleware
+from app.core.redis import close_redis_client, init_redis_client
+from app.core.redis_test import router as redis_test_router
 
 settings = get_settings()
 
@@ -31,10 +33,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger = get_logger(__name__)
     logger.info("application.startup", environment=settings.environment)
     logger.info("database.connection.initialized")
+    _ = await init_redis_client()
+    logger.info("redis.connection.initialized")
 
     yield
 
     # Shutdown
+    await close_redis_client()
+    logger.info("redis.connection.closed")
     await engine.dispose()
     logger.info("database.connection.closed")
     logger.info("application.shutdown")
@@ -54,6 +60,7 @@ setup_exception_handlers(app)
 
 # Include routers
 app.include_router(health_router)  # No prefix - health checks at root level
+app.include_router(redis_test_router)  # Redis test endpoints
 
 
 @app.get("/")

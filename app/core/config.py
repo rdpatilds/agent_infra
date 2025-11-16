@@ -27,6 +27,7 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str
+    redis_url: str
 
     # CORS - stored as list internally, parsed from comma-separated string
     allowed_origins: list[str] = []

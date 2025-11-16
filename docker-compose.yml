@@ -1,4 +1,17 @@
 services:
+  # Redis cache service
+  redis:
+    image: redis:7-alpine
+    container_name: obsidian-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # PostgreSQL database service
   db:
     image: postgres:18-alpine
@@ -43,10 +56,14 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # Override DATABASE_URL to use Docker networking (db:5432 instead of localhost:5433)
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/obsidian_db
+      # Override REDIS_URL to use Docker networking (redis:6379 instead of localhost:6379)
+      - REDIS_URL=redis://redis:6379
 
-    # Wait for database to be healthy before starting app
+    # Wait for database and redis to be healthy before starting app
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
     # Auto-restart policy
