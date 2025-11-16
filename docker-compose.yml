@@ -45,9 +45,9 @@ services:
 
     # Volume mounts for local development
     # Mount project directory but exclude .venv to use container's virtual environment
-    volumes:
-      - .:/app
-      - /app/.venv  # Anonymous volume to preserve container's venv
+    # volumes:
+    #   - .:/app
+    #   - /app/.venv  # Anonymous volume to preserve container's venv
 
     # Environment variables
     # You can override these in a .env file or via shell environment
@@ -76,6 +76,67 @@ services:
     #   timeout: 10s
     #   retries: 3
     #   start_period: 40s
+
+  # Celery worker service
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: live-template-build:latest
+    container_name: obsidian-celery-worker
+    command: celery -A app.core.celery_utils worker --loglevel=info
+
+    # volumes:
+    #   - .:/app
+    #   - /app/.venv
+
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/obsidian_db
+      - REDIS_URL=redis://redis:6379
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
+
+    restart: unless-stopped
+
+  # Flower monitoring service
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: live-template-build:latest
+    container_name: obsidian-flower
+    command: celery -A app.core.celery_utils flower --port=5555
+
+    ports:
+      - "5555:5555"
+
+    # volumes:
+    #   - .:/app
+    #   - /app/.venv
+
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/obsidian_db
+      - REDIS_URL=redis://redis:6379
+
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
+
+    restart: unless-stopped
 
   # Example: Development mode with file watching (requires Compose 2.22.0+)
   # Uncomment and use 'docker compose up dev' for development with auto-reload

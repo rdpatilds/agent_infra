@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
+from app.core.celery_utils import get_celery_app
 from app.core.config import get_settings
 from app.core.database import engine
 from app.core.exceptions import setup_exception_handlers
@@ -14,6 +15,7 @@ from app.core.logging import get_logger, setup_logging
 from app.core.middleware import setup_middleware
 from app.core.redis import close_redis_client, init_redis_client
 from app.core.redis_test import router as redis_test_router
+from app.example.routes import router as example_router
 
 settings = get_settings()
 
@@ -35,6 +37,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("database.connection.initialized")
     _ = await init_redis_client()
     logger.info("redis.connection.initialized")
+
+    # Initialize Celery
+    celery_app = get_celery_app()
+    logger.info("celery.initialized", broker=celery_app.conf.broker_url)
 
     yield
 
@@ -61,6 +67,7 @@ setup_exception_handlers(app)
 # Include routers
 app.include_router(health_router)  # No prefix - health checks at root level
 app.include_router(redis_test_router)  # Redis test endpoints
+app.include_router(example_router)  # Example Celery task endpoints
 
 
 @app.get("/")
