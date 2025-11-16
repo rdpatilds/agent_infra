@@ -1,0 +1,80 @@
+services:
+  # PostgreSQL database service
+  db:
+    image: postgres:18-alpine
+    container_name: obsidian-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: obsidian_db
+    ports:
+      # Using port 5433 on host to avoid conflicts with local PostgreSQL on port 5432
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: live-template-build:latest
+    container_name: live-template-build
+
+    # Port mapping: host:container
+    ports:
+      - "8123:8123"
+
+    # Volume mounts for local development
+    # Mount project directory but exclude .venv to use container's virtual environment
+    volumes:
+      - .:/app
+      - /app/.venv  # Anonymous volume to preserve container's venv
+
+    # Environment variables
+    # You can override these in a .env file or via shell environment
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Override DATABASE_URL to use Docker networking (db:5432 instead of localhost:5433)
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/obsidian_db
+
+    # Wait for database to be healthy before starting app
+    depends_on:
+      db:
+        condition: service_healthy
+
+    # Auto-restart policy
+    restart: unless-stopped
+
+    # Health check (optional - adjust based on your application)
+    # healthcheck:
+    #   test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8123/health')"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
+
+  # Example: Development mode with file watching (requires Compose 2.22.0+)
+  # Uncomment and use 'docker compose up dev' for development with auto-reload
+  # dev:
+  #   extends: app
+  #   command: python main.py --reload
+  #   develop:
+  #     watch:
+  #       - action: sync
+  #         path: .
+  #         target: /app
+  #         ignore:
+  #           - .venv/
+  #       - action: rebuild
+  #         path: ./pyproject.toml
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:

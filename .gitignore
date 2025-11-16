@@ -1,0 +1,18 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.coverage
+htmlcov/
+
+# Environment variables (actual secrets)
+.env
+
+# Database
+alembic/versions/__pycache__/
